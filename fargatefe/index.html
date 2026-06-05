@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SAST Scan Dashboard</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .input-section {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      background: #007bff;
+      color: white;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      padding: 15px;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .blue { background: #007bff; }
+    .red { background: #dc3545; }
+    .orange { background: #fd7e14; }
+    .green { background: #28a745; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #343a40;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    .severity-high {
+      color: red;
+      font-weight: bold;
+    }
+
+    .severity-medium {
+      color: orange;
+      font-weight: bold;
+    }
+
+    .severity-low {
+      color: green;
+      font-weight: bold;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin: 0;
+    }
+
+    .meta {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #eef2f7;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>SAST Scan Dashboard</h1>
+
+    <div class="input-section">
+      <input 
+        type="text" 
+        id="dirpath" 
+        placeholder="Enter directory path"
+      />
+      <button onclick="runScan()">Run Scan</button>
+    </div>
+
+    <div id="meta"></div>
+    <div id="summary"></div>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    async function runScan() {
+      const dirpath = document.getElementById("dirpath").value;
+
+      if (!dirpath) {
+        alert("Please enter a directory path");
+        return;
+      }
+
+      try {
+        // CHANGE THIS URL TO YOUR API
+        const response = await fetch("http://localhost:3000/scan/directory", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ dirpath })
+        });
+
+        const data = await response.json();
+
+        displayData(data);
+
+      } catch (error) {
+        console.error(error);
+        alert("Error calling scan API");
+      }
+    }
+
+    function displayData(data) {
+
+      // META INFO
+      document.getElementById("meta").innerHTML = `
+        <div class="meta">
+          <p><strong>Directory:</strong> ${data.dirpath}</p>
+          <p><strong>Scanned At:</strong> ${data.scannedAt}</p>
+          <p><strong>Status:</strong> ${data.success ? "Success" : "Failed"}</p>
+        </div>
+      `;
+
+      // SUMMARY CARDS
+      document.getElementById("summary").innerHTML = `
+        <div class="summary">
+          <div class="card blue">
+            Files Scanned<br><br>
+            ${data.summary.filesScanned}
+          </div>
+
+          <div class="card red">
+            Total Vulnerabilities<br><br>
+            ${data.summary.totalVulnerabilities}
+          </div>
+
+          <div class="card orange">
+            Medium<br><br>
+            ${data.summary.medium}
+          </div>
+
+          <div class="card green">
+            Low<br><br>
+            ${data.summary.low}
+          </div>
+        </div>
+      `;
+
+      // RESULTS TABLE
+      let tableHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Rule ID</th>
+              <th>Name</th>
+              <th>Severity</th>
+              <th>Description</th>
+              <th>Message</th>
+              <th>Line</th>
+              <th>Column</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (const file in data.results) {
+
+        const vulnerabilities = data.results[file];
+
+        vulnerabilities.forEach(vuln => {
+
+          let severityClass = "";
+
+          if (vuln.severity === "HIGH") {
+            severityClass = "severity-high";
+          } else if (vuln.severity === "MEDIUM") {
+            severityClass = "severity-medium";
+          } else {
+            severityClass = "severity-low";
+          }
+
+          tableHTML += `
+            <tr>
+              <td>${file}</td>
+              <td>${vuln.id}</td>
+              <td>${vuln.name}</td>
+              <td class="${severityClass}">${vuln.severity}</td>
+              <td>${vuln.description}</td>
+              <td>${vuln.message}</td>
+              <td>${vuln.line}</td>
+              <td>${vuln.column}</td>
+              <td>
+                <pre>${vuln.evidence}</pre>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      tableHTML += `
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById("results").innerHTML = tableHTML;
+    }
+  </script>
+
+</body>
+</html>
