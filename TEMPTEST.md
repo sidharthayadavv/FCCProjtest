@@ -8,3 +8,4 @@
 7. testing webhook after restart
 8. Testing semgrep updated pr comment and fixed logic error
 9. Forgot to update webhook base and pr scan location input for test 8 so retest👍.
+10. Minor spelling mistake didnt fire comparison lambda.
